@@ -147,10 +147,7 @@ class Toast(QWidget):
         self.title.setText(title)
         self.body.setText(body)
         self.body.setVisible(bool(body))
-        for b in self._buttons:
-            self.actions.removeWidget(b)
-            b.deleteLater()
-        self._buttons = []
+        self.clear_actions()
         for caption, callback in actions or []:
             b = QPushButton(caption, objectName="toastAction")
             b.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -178,6 +175,24 @@ class Toast(QWidget):
             motion.animate(self, b"pos", target, motion.Duration.TOAST_IN, motion.Ease.OUT)
         self.raise_()
         self._start_countdown(int(seconds * 1000))
+
+    def clear_actions(self) -> None:
+        """Remove the action buttons and drop their callbacks.
+
+        The callbacks usually capture the controller, which owns this toast.
+        Held by a Qt connection, that cycle is invisible to Python's garbage
+        collector, so it must be broken explicitly (see AppController.shutdown);
+        otherwise the controller is only freed from inside a button's C++
+        destructor, which then deletes this toast - the button's own parent.
+        """
+        for b in self._buttons:
+            try:
+                b.clicked.disconnect()
+            except (RuntimeError, TypeError):
+                pass
+            self.actions.removeWidget(b)
+            b.deleteLater()
+        self._buttons = []
 
     def _target_pos(self, near: QRect | None) -> QPoint:
         screen = None

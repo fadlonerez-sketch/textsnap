@@ -144,8 +144,14 @@ class AppController(QObject):
         self._retired_pipelines.clear()
         self.history.close()
         self.toast.hide_now()
+        # Toast actions and result-window lambdas capture this controller; held by Qt
+        # connections, those cycles are invisible to Python's GC. Break them here so the
+        # windows are released deterministically instead of from inside a child's destructor.
+        self.toast.clear_actions()
         if self.result_window is not None:
             self.result_window.close()
+            self.result_window.deleteLater()
+            self.result_window = None
         self.forget_capture()
 
     def refresh_engine_status(self) -> None:

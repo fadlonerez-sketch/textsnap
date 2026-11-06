@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import gc
 import json
+import weakref
 
 import pytest
-from PySide6.QtCore import QObject, QRect, Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QRect, Qt, QTimer, QVariantAnimation
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from textsnap.app.controller import AppController
@@ -114,6 +116,54 @@ def test_toggle_animates_and_settles(qtbot):
     assert t._pos == 0.0
 
 
+def _flush_deletes():
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    gc.collect()
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def test_animation_never_owns_its_widget(qtbot):
+    """Regression for the full-run abort: the knob tween held Toggle._set_pos strongly, so an animation
+    could hold the last reference to its own parent. Deleting the (stopped) animation later then freed
+    the toggle from inside the animation's destructor - a double delete that aborted Qt."""
+    t = Toggle()
+    t.show()
+    t.click()  # knob animation running, a child of the toggle
+    assert t.findChildren(QVariantAnimation)
+    ref = weakref.ref(t)
+    del t
+    gc.collect()
+    assert ref() is None  # freed right here (with its animation), never from inside the animation
+    _flush_deletes()
+    qtbot.wait(motion.Duration.FAST + 50)  # the event loop survives the animation's would-be ticks
+
+
+def test_fade_in_removes_its_effect_after_the_signal(qtbot):
+    host = QWidget()
+    qtbot.addWidget(host)
+    child = QWidget(host)
+    host.show()
+    motion.fade_in(child, 40)
+    assert child.graphicsEffect() is not None
+    qtbot.waitUntil(lambda: child.graphicsEffect() is None, timeout=2000)
+    assert motion.running_count() == 0
+
+
+def test_shutdown_releases_the_controller(qtbot, isolated_data_dir):
+    """Toast actions and result-window lambdas capture the controller; held by Qt connections, that cycle is
+    invisible to Python's GC. shutdown() must break it, or every controller (and its windows) leaks and is
+    later destroyed at an arbitrary moment."""
+    c = AppController(SettingsStore(paths.settings_path()), trigger=FakeTrigger(),
+                      clipboard=ClipboardService(FakeClipboardBackend(), sleep=lambda s: None))
+    c._toast("info", "Text recognised", "3 characters", actions=[("Copy", lambda: c.copy_text("abc"))])
+    c.ensure_result_window()
+    c.shutdown()
+    ref = weakref.ref(c)
+    del c
+    _flush_deletes()
+    assert ref() is None
+
+
 def test_spinner_timer_only_runs_while_visible(qtbot):
     host = QWidget()
     qtbot.addWidget(host)
@@ -180,6 +230,27 @@ def test_setting_change_shows_saved_feedback(qtbot, controller):
     widgets["show_crosshair"].click()
     assert d.pages["capture"].saved.isVisible()
     assert SettingsStore(paths.settings_path()).load().show_crosshair is True
+
+
+def test_rejected_search_address_is_not_reported_as_saved(qtbot, controller):
+    from textsnap.ui.dashboard import Dashboard
+    d = Dashboard(controller)
+    qtbot.addWidget(d)
+    d.show_page("advanced")
+    page = d.pages["advanced"]
+    before = controller.settings.search_url
+    page.search.setText("ms-settings:{query}")
+    page.search.editingFinished.emit()
+    assert not page.saved.isVisible()
+    assert not page.search_error.isHidden() and "Not saved" in page.search_error.text()
+    assert controller.settings.search_url == before
+    assert SettingsStore(paths.settings_path()).load().search_url == before
+
+    page.search.setText("  https://www.bing.com/search?q={query}  ")
+    page.search.editingFinished.emit()
+    assert page.saved.isVisible() and page.search_error.isHidden()
+    assert controller.settings.search_url == "https://www.bing.com/search?q={query}"
+    assert page.search.text() == controller.settings.search_url
 
 
 def test_reduce_motion_setting(qtbot, controller):

@@ -21,7 +21,7 @@ from textsnap.app.controller import AppController
 from textsnap.history.store import HistoryError
 from textsnap.keyboard import keys as K
 from textsnap.storage import paths
-from textsnap.storage.settings import LANGUAGE_LABELS
+from textsnap.storage.settings import LANGUAGE_LABELS, validate_search_url
 from textsnap.ui import dialogs, motion, theme
 from textsnap.ui.theme import C, S, T
 from textsnap.ui.widgets import (
@@ -1350,6 +1350,7 @@ class AdvancedPage(Page):
     def __init__(self, d: Dashboard):
         super().__init__("Advanced", "Fine-tuning for unusual captures and accessibility. The defaults suit most "
                                      "screens.")
+        self.d = d
         b = d.binder
         ocr = Card("Recognition", icon="text")
         ocr.row("Image preparation", b.combo("preprocess", [("Automatic (recommended)", "auto"),
@@ -1381,11 +1382,25 @@ class AdvancedPage(Page):
         web = Card("Web search", icon="search")
         self.search = QLineEdit(d.c.settings.search_url)
         self.search.setMinimumWidth(320)
-        self.search.editingFinished.connect(lambda: (d.c.update_settings(search_url=self.search.text().strip()),
-                                                     self.saved.flash()))
+        self.search.editingFinished.connect(self._search_changed)
         web.row("Search address", self.search, "{query} is replaced by the text. Used only when you click Search.")
+        self.search_error = Banner("", "error")
+        web.add(self.search_error)
         self.add(web)
         self.refresh()
+
+    def _search_changed(self) -> None:
+        text = self.search.text().strip()
+        problem = validate_search_url(text)
+        if problem is not None:
+            # The controller would reject it too; say so instead of claiming it was saved.
+            self.search_error.set("error", f"Not saved: {problem}. The previous address is still used.")
+            return
+        self.search_error.set("error", "")
+        if text != self.d.c.settings.search_url:
+            self.d.c.update_settings(search_url=text)
+        self.search.setText(self.d.c.settings.search_url)
+        self.saved.flash()
 
     def refresh(self) -> None:
         self.system_note.set("info", "" if motion.system_animations_enabled() else

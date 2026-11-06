@@ -8,6 +8,10 @@ Principles
   so rapid clicks never stack or fight.
 * Animations are children of their target, stop when it hides and are
   deleted when they finish - nothing keeps running for hidden windows.
+* An animation never keeps its target (or a callback's owner) alive: bound
+  method callbacks are held weakly. Otherwise, once the animation is the last
+  reference, deleting it would free the Python owner - its own C++ parent -
+  from inside the animation's destructor (a double delete that aborts Qt).
 * Reduced motion (TextSnap setting, or Windows' "Show animations" turned off)
   replaces every transition with its end state.
 """
@@ -15,9 +19,13 @@ Principles
 from __future__ import annotations
 
 import ctypes
+import inspect
+import weakref
 from typing import Any, Callable
 
-from PySide6.QtCore import QAbstractAnimation, QEasingCurve, QObject, QPoint, QPropertyAnimation, QVariantAnimation
+from PySide6.QtCore import (
+    QAbstractAnimation, QEasingCurve, QObject, QPoint, QPropertyAnimation, QTimer, QVariantAnimation,
+)
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QWidget
 
 
@@ -66,6 +74,20 @@ def scaled(ms: int) -> int:
 _running: dict[tuple[int, bytes], QAbstractAnimation] = {}
 
 
+def _weak(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Hold a bound method weakly, so a callback stored in an animation never owns its object."""
+    if not inspect.ismethod(fn):
+        return fn
+    ref = weakref.WeakMethod(fn)
+
+    def call(*args: Any) -> None:
+        method = ref()
+        if method is not None:
+            method(*args)
+
+    return call
+
+
 def _forget(key: tuple[int, bytes], anim: QAbstractAnimation) -> None:
     if _running.get(key) is anim:  # never evict a newer animation of the same property
         del _running[key]
@@ -94,7 +116,7 @@ def animate(target: QObject, prop: bytes, end: Any, duration: int = Duration.BAS
     anim.finished.connect(lambda: _forget(key, anim))
     anim.destroyed.connect(lambda *_: _forget(key, anim))  # target deleted mid-animation
     if on_done:
-        anim.finished.connect(on_done)
+        anim.finished.connect(_weak(on_done))
     _running[key] = anim
     anim.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
     return anim
@@ -119,11 +141,12 @@ def tween(owner: QObject, start: float, end: float, duration: int, on_value: Cal
     anim.setEndValue(float(end))
     anim.setDuration(ms)
     anim.setEasingCurve(easing)
-    anim.valueChanged.connect(lambda v: on_value(float(v)))
+    value_cb = _weak(on_value)
+    anim.valueChanged.connect(lambda v: value_cb(float(v)))
     anim.finished.connect(lambda: _forget(k, anim))
     anim.destroyed.connect(lambda *_: _forget(k, anim))
     if on_done:
-        anim.finished.connect(on_done)
+        anim.finished.connect(_weak(on_done))
     _running[k] = anim
     anim.start(QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
     return anim
@@ -148,10 +171,19 @@ def fade_in(widget: QWidget, duration: int = Duration.BASE, rise: int = 0) -> No
     effect = QGraphicsOpacityEffect(widget)
     effect.setOpacity(0.0)
     widget.setGraphicsEffect(effect)
+    widget_ref = weakref.ref(widget)  # see _weak; the effect itself is owned by the widget (C++)
+
+    def remove() -> None:
+        w = widget_ref()
+        if w is not None and w.graphicsEffect() is effect:
+            w.setGraphicsEffect(None)
 
     def finish() -> None:
-        if widget.graphicsEffect() is effect:
-            widget.setGraphicsEffect(None)
+        # Removing the effect deletes it and the animation (its child), so never do that
+        # inside the animation's own finished() signal; let the event loop move on first.
+        w = widget_ref()
+        if w is not None:
+            QTimer.singleShot(0, w, remove)
 
     animate(effect, b"opacity", 1.0, duration, Ease.OUT, start=0.0, on_done=finish)
     if rise:
