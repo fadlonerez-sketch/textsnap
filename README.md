@@ -1,260 +1,163 @@
 # TextSnap
 
-Hold a key, drag over any text on your screen, paste it anywhere.
+Hold a key, drag over any text on your screen, paste it anywhere. A Windows tray utility with
+**offline OCR for Hebrew, English and mixed Hebrew/English**.
 
-TextSnap is a Windows 10/11 tray utility that turns any visible screen area into
-plain Unicode text with **offline OCR** for **Hebrew, English and mixed
-Hebrew/English**. Nothing leaves your computer: no cloud OCR, no account, no
-network access, no telemetry.
+![Capture workflow: freeze-frame overlay, drag over text, "Text copied" confirmation](docs/images/capture-workflow.gif)
 
-## Quick start
+<sub>Rendered offscreen from the real overlay and toast widgets: a synthetic screenshot is passed through the real
+capture → OCR pipeline (bundled Tesseract), and the drag is simulated with Qt test events. Not a screen recording.</sub>
 
-1. Start `TextSnap.exe` (portable build) or `run.bat` (from source).
-   A TextSnap icon appears in the notification area.
-2. **Hold the Spacebar for half a second.** The screen dims and freezes.
-   (A normal tap of Space still types a space - see "The Spacebar trigger" below.)
-3. Let go of the key, then **drag a rectangle** over the text and release the mouse.
-4. The text is already on the clipboard - **paste with Ctrl+V**.
+## Why
 
-A small confirmation appears in the corner ("Text copied - paste with
-Ctrl+V"). It never takes keyboard focus, and TextSnap hands focus back to the
-app you were using, so you can paste immediately. Click **View** on the
-confirmation (or **Show last result** in the tray) to see, edit, re-run or save
-the text.
-
-In the overlay: **Esc** or **right-click** cancels, **R / W / M / A** switch
-between region, window, screen and all-screens modes, and **Enter** repeats
-the previous area. A magnifier next to the cursor helps with precise edges.
-
-## Installation
-
-### Portable builds (no Python installation needed)
-
-`build_exe.bat` produces two equivalent portable folders; copy either one
-anywhere (for example `%LOCALAPPDATA%\Programs\TextSnap`) and keep it together:
-
-| Folder | Start with | Notes |
-|---|---|---|
-| `dist\TextSnap` | `TextSnap.exe` | PyInstaller build, 260 MB. |
-| `dist\TextSnap-Portable` | `TextSnap.bat` | Same app on the official Python runtime, 303 MB. Use this one if Windows **Smart App Control** (or another application-control policy) blocks `TextSnap.exe` with "An Application Control policy has blocked this file". |
-
-Why two: Smart App Control refuses unsigned executables that have no
-reputation, and every freshly built `TextSnap.exe` is such a file (on this
-development PC it blocked one build and allowed the next). The portable folder
-contains no newly built executable at all - it runs on the PSF-signed
-`pythonw.exe`, the unmodified PyPI wheel binaries and the UB Mannheim-signed
-Tesseract - so nothing needs to be unblocked and no protection has to be
-turned off. `TextSnap.bat` briefly flashes a console window while it starts
-`pythonw.exe`.
-
-TextSnap does not install itself, change startup settings or need
-administrator rights. The OCR engine and language models live in
-`_internal\vendor\tesseract` (EXE build) or `app\vendor\tesseract` (portable).
-
-### From source
-
-Requirements: Windows 10/11 64-bit and Python 3.11+ (developed on 3.14).
-
-```bat
-run.bat                 :: creates .venv on first run, then starts TextSnap
-run_tests.bat           :: automated tests
-run_tests.bat --desktop :: also the desktop tests that inject real keyboard/mouse input
-build_exe.bat           :: builds dist\TextSnap and dist\TextSnap-Portable, runs both self-tests
-```
-
-The OCR engine is checked into `vendor\tesseract`. To rebuild that folder from
-the official downloads (hash-pinned): `.venv\Scripts\python tools\prepare_vendor.py`.
-
-### Command line
-
-| Option | Effect |
-|---|---|
-| `--minimized` | start in the tray only (used by the optional autostart) |
-| `--show` | open the dashboard |
-| `--capture` | start a region capture |
-| `--capture-desktop` | recognise all screens |
-| `--ocr-clipboard` | recognise the image on the clipboard |
-| `--quit` | close the running TextSnap |
-| `--data-dir PATH` | use another folder for settings, history and logs |
-| `--self-test REPORT.json` | verify the engine, models, overlay and hook; writes a report |
-
-If TextSnap is already running, these commands are forwarded to it; only one
-instance ever runs per user session.
+Text you can see but not select - error dialogs, images, videos, remote desktops, PDFs scanned as pictures - is
+normally retyped by hand. Cloud OCR tools solve that but send your screen to a server, and most handle Hebrew
+(right-to-left, often mixed with English) poorly. TextSnap does it entirely on your PC: no cloud, no account,
+no network access, no telemetry.
 
 ## Features
 
-- **Long-press trigger** (default: Spacebar, 0.5 s). Other keys or
-  combinations can be chosen (Right Ctrl, Left Ctrl, Right Alt, Left Ctrl +
-  Left Shift, ...), hold time 0.2-3 s, on/off switch, live test, conflict hints
-  and one-click defaults. A quick press keeps its normal meaning; pressing
-  another key or a mouse button (including the wheel) while holding cancels,
-  so typing and shortcuts such as Ctrl+wheel zoom never open the overlay. Left
-  and right modifiers are distinct.
-- **Freeze-frame overlay** across all monitors with correct coordinates for
-  any scaling (100-250 %), mixed DPI and monitors left of or above the primary.
-  Region, window (click a window), screen and all-screens modes, size label,
-  magnifier, optional crosshair, minimum size with a re-select hint. An
-  "Active window" default mode reads the focused window immediately, without
-  the overlay.
-- **OCR**: Tesseract 5.4 with Hebrew and English `tessdata_best` (accurate,
-  default) and `tessdata_fast` models. Languages: Hebrew + English (default),
-  Hebrew, English, or Auto-detect (best effort - see below). Fast mode makes
-  one pass; Thorough mode tries several image preparations and keeps the best.
-- **Results**: automatic copy (default), confirmation toast, result window with
-  editing, copy variants (cleaned, trimmed, joined paragraphs, original,
-  selection), Clean text, Run again with another language or Thorough mode,
-  Save as .txt, larger editor, clickable links and e-mail addresses (links open
-  only after you confirm), web search for the text on request, optional QR-code
-  detection, optional automatic paste (off by default, asks for confirmation).
-- **Other sources**: clipboard image, image files (PNG, JPEG, BMP, TIFF, GIF,
-  WebP; drag them onto the dashboard), PDF files (page ranges, progress,
-  embedded text used when present), repeat last area, all screens.
-- **History** (off by default): search, copy, open, pin, snippets, delete,
-  export, clear (pinned entries kept), clear pinned, retention 1 day-forever.
-- **Privacy & storage**: optional saving of capture images to a folder you
-  choose (off by default), keep results out of Win+V clipboard history,
-  log level, reset settings, opt-in Start with Windows.
+- **Long-press trigger** (default: hold Spacebar 0.5 s; a normal tap still types a space) or any configurable key
+  combination, plus tray menu and command-line triggers.
+- **Freeze-frame overlay** across all monitors, correct for any DPI scaling and mixed-DPI layouts. Region, window,
+  screen and all-screens modes, magnifier, repeat-last-area.
+- **OCR**: Tesseract 5.4 with `tessdata_best` and `tessdata_fast` Hebrew + English models; fast and thorough
+  (multi-preprocessing) modes; a mixed-script correction pass that re-reads words Tesseract misreads at
+  Hebrew/English boundaries and fixes line order.
+- **Results** go straight to the clipboard, with a non-focus-stealing toast and an editable result window
+  (copy variants, clean text, run again with another language, save).
+- **Other sources**: clipboard images, image files, PDFs (page ranges, embedded text when present), QR codes.
+- **Opt-in history**, privacy controls, reduced-motion support, full keyboard navigation.
 
-### The Spacebar trigger
-
-Windows types a space the moment Space goes down and repeats it while the key
-is held, so a long-press on Space cannot be detected without holding the key
-back. With **Hold back the Spacebar** (Keyboard trigger page, on by default):
-
-| You do | What happens |
+| Result window | Dashboard |
 |---|---|
-| Tap Space | One space is typed - when you **release** the key (a few tens of milliseconds later than usual). |
-| Type fast (next key pressed before Space is released) | Space is sent first, then that key, in the original order. No overlay. |
-| Hold Space for 0.5 s | The overlay opens once. **No space is typed** and nothing repeats. Releasing Space does not close the overlay. |
-| Space + mouse click or wheel | Space is sent first, then the click/wheel; the hold is cancelled. |
-| Win+Space, Ctrl+Space, Shift+Space, Alt+Space (any modifier or mouse button already held) | Passed through untouched: input-language switching and other shortcuts work as before. No overlay. |
+| ![Result window showing recognised Hebrew and English text](docs/images/result-window.png) | ![TextSnap dashboard home page](docs/images/dashboard.png) |
 
-Unavoidable consequences (Windows offers no way around them for a global
-long-press on a typing key):
+<sub>Offscreen renders of the real windows. The text in the result window is the bundled Tesseract's actual output
+for the synthetic screenshot in the animation above, including its one mistake ("Version 3.2" read as "Version 2").</sub>
 
-- **Holding Space no longer auto-repeats spaces** while the trigger is on.
-- Apps that act on a **held** Spacebar lose that behaviour: games (jump/charge),
-  Space+drag panning in design apps (the click is re-ordered correctly, but a
-  hold longer than 0.5 s before clicking opens the overlay), hold-to-scroll in
-  browsers, push-to-talk. Turn the trigger off from the tray menu while using
-  them, or choose another trigger key.
-- The space of a tap reaches the app on release instead of on press; apps that
-  react to the key-down moment (play/pause, buttons) react slightly later.
-- Re-sent keys are synthetic input. TextSnap's own hook ignores them; other
-  low-level keyboard tools may see them as injected.
-- While an app running as administrator is focused, Windows does not show its
-  keys to TextSnap at all, so Space behaves normally there and the trigger
-  does nothing (use the tray menu).
+Full usage details (Spacebar behaviour, mixed-script handling, settings, privacy, troubleshooting, command line):
+[docs/USER_GUIDE.md](docs/USER_GUIDE.md). Design decisions: [docs/DECISIONS.md](docs/DECISIONS.md).
 
-With hold-back turned off, Space is never blocked, but every long press first
-types a space (and more spaces once your keyboard repeat delay passes).
-Settings saved with the previous default (Right Ctrl alone) are moved to the
-Spacebar on first start; a different, customised trigger is kept.
+## Tech stack
 
-### Mixed Hebrew and English
+Python 3.11+ (developed and tested on 3.14) · PySide6 / Qt 6 · NumPy + Pillow for image preprocessing ·
+Tesseract 5.4 run out of process (pixels piped in, TSV piped out, no temp files) · Win32 low-level keyboard hook
+via `ctypes` · pypdfium2 (PDF) · zxing-cpp (QR) · PyInstaller for the packaged build · pytest + pytest-qt.
 
-Text is produced in logical (reading) order as Unicode expects; nothing is
-ever reversed for display. TextSnap adds two corrections on top of Tesseract:
+## Requirements
 
-- **Mixed-script check**: with both models loaded, Tesseract sometimes reads a
-  short Hebrew word next to an English one as Latin letters ("עם Microsoft" ->
-  "oy Microsoft"), or a Hebrew prefix glued to an English word as junk
-  ("ה-API" -> "API-0"). Suspicious words are re-read with the single-language
-  model and replaced only when that reading is confident and of the right script.
-- **Line order**: lines that mix scripts are re-ordered from the word
-  positions, using the majority script as the line direction.
+- Windows 10 or 11, 64-bit (the capture, hook and focus code is Win32-specific).
+- Python 3.11+ to run from source.
+- **Git LFS** to clone (see below). No separate Tesseract installation is needed.
 
-A line such as "Version 3.2 של המערכת" can be legitimately stored in two
-logical orders that look the same on screen; TextSnap uses the order implied
-by the line's majority script.
+### The bundled OCR engine
 
-**Auto-detect (best effort)** reads with both models, counts Hebrew and Latin
-letters, and when only one script is present re-reads with that model alone,
-keeping the higher-confidence result. It only chooses between Hebrew and
-English.
+`vendor/tesseract` contains the official **UB Mannheim Windows build of Tesseract 5.4.0.20240606**, unmodified:
 
-### Interface, motion and accessibility
+- `tesseract.exe` plus the 26 DLLs it imports (`libtesseract-5.dll`, `libleptonica-6.dll`, image codecs, compression
+  and MinGW runtime libraries) - nothing else from the installer.
+- Language models `eng` and `heb` from both `tessdata_best` (default, most accurate) and `tessdata_fast`, with the
+  standard `configs` folder.
+- `MANIFEST.json` records the SHA-256 of all 85 files; the app's self-test and the build verify against it.
 
-- **First run**: a three-step tour (hold the trigger, drag, paste) with a
-  privacy note. Skip, Got it or Try it now; it is shown once and can be
-  reopened from **Home > Quick tour** or **About**. Installs that already had
-  settings do not see it.
-- **Motion** is short and functional: page cross-fades (180 ms), sidebar
-  indicator, toggles, toasts that slide in with a countdown line and pause
-  while the pointer is over them, a brief accent pulse around the captured
-  area, button labels that confirm in place ("Copied"). Nothing animates while
-  TextSnap is idle.
-- **Reduce motion**: **Advanced > Motion & accessibility** turns animations
-  into instant changes. TextSnap also follows Windows' *Animation effects*
-  setting (Settings > Accessibility > Visual effects) automatically.
-- **Keyboard**: every control is reachable with Tab; focus rings appear for
-  keyboard focus, not after mouse clicks. Action tiles and option cards react
-  to Enter and Space.
+These binaries and models (about 140 MB, 31 files) are stored with **Git LFS**.
 
-## Settings and data
+## Clone
 
-Everything is stored per user in `%LOCALAPPDATA%\TextSnap`:
+Git LFS is required; without it the engine files are small text "pointer" files and every OCR call fails
+("OCR engine unavailable").
 
-| File | Content |
-|---|---|
-| `settings.json` | settings (invalid values fall back to defaults individually; a corrupt file is renamed and replaced) |
-| `history.db` | only exists after you turn History on |
-| `logs\textsnap.log` | diagnostics: events, timings and sizes - never recognised text |
+```bat
+git lfs install
+git clone https://github.com/fadlonerez-sketch/textsnap.git
+cd textsnap
+git lfs ls-files
+```
 
-Reset everything from **Privacy & storage > Reset all settings**, or quit
-TextSnap and delete the folder.
+`git lfs ls-files` should list 31 files under `vendor/tesseract` with `*` (content present), not `-` (pointer only).
+If you cloned before installing Git LFS, run `git lfs pull`. To check the folder byte-for-byte:
 
-## Privacy
+```bat
+python tools\prepare_vendor.py --verify
+```
 
-- OCR runs locally in a separate `tesseract.exe` process. Pixels are streamed
-  to it through a pipe and the text comes back the same way - no temporary files.
-- The screenshot exists only in memory. The latest crop is kept for up to
-  10 minutes so **Run again** works (or until you press Clear), then dropped.
-  Images are written to disk only when you turn on "Save captured images".
-- Recognised text goes to the clipboard, and into the history database only
-  if you enabled History. Logs never contain text, clipboard data, key presses
-  or images.
-- The keyboard hook looks only for the configured trigger key(s) and records
-  nothing. Keys are passed through unchanged, except that with the Spacebar
-  trigger a plain Space press is held back until the hold is decided and then
-  re-sent (in order, together with a key or click that arrived meanwhile) or,
-  after the overlay opened, dropped. Turning the trigger off removes the hook. TextSnap never opens links or runs commands it finds in text.
-- No network access at all, except the web search and links you explicitly click.
+**Fallback without LFS:** `python tools\prepare_vendor.py` rebuilds `vendor/tesseract` from the official sources:
+it downloads 7-Zip and the UB Mannheim installer from GitHub releases and the four models from the
+`tesseract-ocr/tessdata_best` / `tessdata_fast` repositories, checks every download against a pinned SHA-256,
+unpacks the installer with 7-Zip (nothing is installed), keeps only `tesseract.exe` and its DLL import closure, and
+rewrites `MANIFEST.json`. It needs internet access and `pip install pefile`.
 
-## Troubleshooting
+## Install and run (from source)
 
-| Problem | What to do |
-|---|---|
-| Holding Space types spaces instead of opening the overlay | Turn on "Hold back the Spacebar" (Keyboard trigger page), and make sure no modifier key is held. |
-| A game or design app misbehaves with Space | Turn the trigger off from the tray menu while using it, or pick another trigger key. |
-| Holding the key does nothing | Check the tray tooltip / Keyboard page status. Use **Test** on the Keyboard page. While an app running **as administrator** is in front, Windows does not deliver its keys to TextSnap - use the tray menu instead, or run that app normally. |
-| The overlay opens by accident | Raise the hold time, or pick another trigger (Keyboard page). |
-| Selected area is black | Protected content (DRM video, some games in exclusive full-screen, secure desktop) cannot be captured. This is Windows' protection and is not bypassed. |
-| Wrong or missing characters | Select a little more context, try **Run again > Thorough**, or choose the language explicitly. Very small serif text (under ~11 px) is the hardest case. |
-| "OCR engine unavailable" | The `vendor\tesseract` (`_internal\vendor\tesseract` in the portable build) folder is incomplete; copy the full TextSnap folder again. A custom Tesseract folder can be set on the Languages page. |
-| "Language data not found" | The named `.traineddata` file is missing from the engine folder. TextSnap never silently falls back to English. |
-| Clipboard error | Another program held the clipboard. Click **Copy** in the result window to retry. |
-| No tray icon | TextSnap then keeps the dashboard open; `TextSnap.exe --capture` also starts a capture. |
-| Two copies running? | Not possible: a second launch hands its command to the running instance and exits. |
+```bat
+run.bat
+```
 
-Diagnostics (no user text) are on **About & diagnostics**; logs are in
-`%LOCALAPPDATA%\TextSnap\logs`.
+`run.bat` creates `.venv`, installs the pinned `requirements.txt` on first run and starts TextSnap in the tray.
+Hold Space for half a second, drag over text, press Ctrl+V. Equivalent manual steps:
+
+```bat
+py -3 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\pythonw main.py
+```
+
+Use `--data-dir PATH` to keep a development instance's settings separate from your own.
+
+**Portable build:** `build_exe.bat` produces `dist\TextSnap` (PyInstaller) and `dist\TextSnap-Portable` (runs on the
+signed official Python runtime, for machines where Smart App Control blocks new unsigned executables). Both run their
+self-test after building. See the [user guide](docs/USER_GUIDE.md#portable-builds-no-python-installation-needed).
+
+## Tests
+
+```bat
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\python -m pytest tests --ignore=tests/test_desktop.py
+```
+
+Result on the development machine (Windows 11, Python 3.14): **306 passed**. The tests run Qt offscreen and use the
+real bundled Tesseract on synthetic, Qt-rendered Hebrew/English images; the keyboard trigger and clipboard are
+replaced by fakes, and each test gets a temporary data folder.
+
+`tests/test_desktop.py` injects real keyboard and mouse input. It is skipped unless `TEXTSNAP_DESKTOP_TESTS=1`
+is set (`run_tests.bat --desktop`) and should only be run on a machine you are not using. Lint: `python -m ruff check .`
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Project structure
+
+```
+main.py                 entry point
+textsnap/keyboard/      trigger state machine, Spacebar hold-back, low-level hook thread
+textsnap/capture/       DPI-aware monitor geometry, GDI screen snapshot, window rectangles
+textsnap/ocr/           Tesseract subprocess engine, preprocessing, pipeline, mixed-script fix, PDF/QR
+textsnap/app/           controller (workflow hub), job pool, single instance, self-test
+textsnap/ui/            theme, motion, overlay, toast, result window, dashboard, dialogs
+textsnap/winsys/        focus restore, autostart, optional paste
+tests/                  pytest suite (offscreen) + opt-in desktop tests
+tools/                  vendor preparation/verification, portable build, license collection, icon
+vendor/tesseract/       bundled OCR engine and models (Git LFS)
+```
 
 ## Known limitations
 
-- A region selection stays within one monitor (window, screen and all-screens
-  modes cover several).
-- Keys pressed while an elevated (administrator) window has focus are not
-  seen by the trigger (Windows UIPI). The tray menu still works.
-- OCR accuracy depends on the source: anti-aliased screen text at 12 px or
-  more is read reliably; tiny serif fonts and stylised text less so.
-- The interface uses one dark theme. It does not switch with Windows light
-  mode and does not adopt Windows High Contrast colours.
-- The bundled `libtesseract-5.dll` contains the upstream build's debug
-  information (~97 MB); it is kept unmodified to preserve the publisher's signature.
+- Windows only.
+- A region selection stays within one monitor (window, screen and all-screens modes cover several).
+- Windows does not deliver key presses from elevated (administrator) windows to the trigger; the tray menu still works.
+- Holding Space no longer auto-repeats while the Spacebar trigger is on, and apps that rely on a held Spacebar
+  (games, push-to-talk, Space+drag panning) need the trigger paused or another key chosen. Details in the
+  [user guide](docs/USER_GUIDE.md#the-spacebar-trigger).
+- Accuracy depends on the source: screen text of 12 px or more reads reliably; very small serif or stylised text less so.
+- Auto-detect chooses only between Hebrew and English.
+- One dark theme; Windows light mode and High Contrast colours are not followed.
+- Protected content (DRM video, secure desktop) captures as black, by Windows design.
+- The vendored `libtesseract-5.dll` keeps the upstream debug information (~97 MB) so its publisher signature stays valid.
 
-## License notices
+## License
 
-TextSnap bundles Tesseract OCR, its language models and libraries, Qt/PySide6
-and other components under their own licenses. See `THIRD_PARTY_NOTICES.md`
-and the `licenses` folder.
+TextSnap's own source code is released under the [MIT License](LICENSE).
+
+The bundled Tesseract OCR engine, its language models and libraries, Qt/PySide6 and the other runtime components
+are third-party software under their own licenses (Apache-2.0, BSD/MIT-style, LGPL, and GPL for two unmodified
+helper DLLs used only by the separate `tesseract.exe` process). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md),
+`vendor/tesseract/licenses` and `packaging/licenses`.
