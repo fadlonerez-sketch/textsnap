@@ -1,3 +1,6 @@
+# Vendored files are hash-pinned in MANIFEST.json: never convert line endings.
+vendor/tesseract/** -text
+vendor/tesseract/MANIFEST.json text eol=lf
 vendor/tesseract/**/*.traineddata filter=lfs diff=lfs merge=lfs -text
 vendor/tesseract/**/*.dll filter=lfs diff=lfs merge=lfs -text
 vendor/tesseract/**/*.exe filter=lfs diff=lfs merge=lfs -text
