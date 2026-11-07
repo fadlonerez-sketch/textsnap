@@ -413,8 +413,12 @@ class SavedIndicator(QLabel):
         self._timer.start(1400)
 
     def _fade_out(self) -> None:
-        motion.animate(self._effect, b"opacity", 0.0, motion.Duration.BASE,
-                       on_done=lambda: self.setVisible(False))
+        # A bound method (held weakly by motion.animate), not a lambda: a closure over self would let the
+        # animation own the indicator and free it from inside the animation's own destructor.
+        motion.animate(self._effect, b"opacity", 0.0, motion.Duration.BASE, on_done=self._hide_after_fade)
+
+    def _hide_after_fade(self) -> None:
+        self.setVisible(False)
 
 
 class Spinner(QWidget):
