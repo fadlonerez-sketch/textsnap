@@ -158,7 +158,6 @@ def test_open_windows_never_veto_quitting(qtbot, controller):
 
     The dashboard hides to the tray only for the user's own title-bar close (a spontaneous event; checked
     against a real window in the manual QA notes), so a programmatic close must be accepted."""
-    from PySide6.QtWidgets import QApplication
     from textsnap.ui.dashboard import Dashboard
     from textsnap.ui.toast import Toast
     d = Dashboard(controller, tray_available=True)

@@ -26,7 +26,7 @@ from typing import Callable
 
 from textsnap.keyboard import detector as det
 from textsnap.keyboard.detector import LongPressDetector, TriggerConfig
-from textsnap.keyboard.intercept import KeyInterceptor, Synthetic, SyntheticKey, SyntheticMouse
+from textsnap.keyboard.intercept import KeyInterceptor, SyntheticKey
 from textsnap.keyboard.keys import GUARD_VKS, VK_ESCAPE, is_altgr_fake_ctrl, normalize_vk
 
 log = logging.getLogger(__name__)

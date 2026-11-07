@@ -30,7 +30,7 @@ from textsnap.clipboard.clipboard import ClipboardService
 from textsnap.history.store import HistoryError, HistoryStore
 from textsnap.keyboard.service import TriggerService
 from textsnap.ocr.documents import IMAGE_SUFFIXES, DocumentError, PdfDocument, load_image
-from textsnap.ocr.engine import EngineStatus, OcrCancelled, OcrError, TesseractEngine
+from textsnap.ocr.engine import EngineStatus, OcrCancelled, TesseractEngine
 from textsnap.ocr.pipeline import OcrOptions, OcrPipeline, OcrResult
 from textsnap.ocr.qr import decode_qr
 from textsnap.storage import paths

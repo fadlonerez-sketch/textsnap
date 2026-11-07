@@ -69,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         logs.shutdown()
         return code
 
-    from PySide6.QtNetwork import QLocalServer, QLocalSocket
+    from PySide6.QtNetwork import QLocalServer
     from textsnap.winsys.single_instance import InstanceLock, instance_key
 
     lock = InstanceLock()
@@ -194,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
 def _forward(key: str, command: str) -> int:
     from PySide6.QtCore import QCoreApplication
     from PySide6.QtNetwork import QLocalSocket
-    app = QCoreApplication.instance() or QCoreApplication(sys.argv[:1])
+    app = QCoreApplication.instance() or QCoreApplication(sys.argv[:1])  # noqa: F841 (keeps the Qt application alive)
     sock = QLocalSocket()
     sock.connectToServer(key)
     if not sock.waitForConnected(2000):

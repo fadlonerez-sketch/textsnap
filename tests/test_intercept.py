@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from textsnap.keyboard.detector import LongPressDetector, TriggerConfig
-from textsnap.keyboard.intercept import KeyInterceptor, SyntheticKey, SyntheticMouse
+from textsnap.keyboard.intercept import KeyInterceptor, SyntheticKey
 from textsnap.keyboard.keys import VK_LSHIFT, VK_LWIN, VK_RCONTROL, VK_SPACE, trigger_vks
 
 from test_detector import FakeScheduler

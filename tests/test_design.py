@@ -155,7 +155,7 @@ def test_shutdown_releases_the_controller(qtbot, isolated_data_dir):
     later destroyed at an arbitrary moment."""
     c = AppController(SettingsStore(paths.settings_path()), trigger=FakeTrigger(),
                       clipboard=ClipboardService(FakeClipboardBackend(), sleep=lambda s: None))
-    c._toast("info", "Text recognised", "3 characters", actions=[("Copy", lambda: c.copy_text("abc"))])
+    c._toast("info", "Text recognised", "3 characters", actions=[("Copy", lambda: c.copy_text("abc"))])  # noqa: F821 (c is deleted below on purpose)
     c.ensure_result_window()
     c.shutdown()
     ref = weakref.ref(c)

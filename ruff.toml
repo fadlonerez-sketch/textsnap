@@ -1,0 +1,8 @@
+# Lint configuration (dev only): `python -m ruff check .`
+line-length = 140
+target-version = "py311"
+extend-exclude = ["build", "dist", "vendor"]
+
+[lint]
+# pycodestyle errors/warnings + pyflakes. Kept deliberately small so CI flags real mistakes, not style churn.
+select = ["E", "F", "W"]
