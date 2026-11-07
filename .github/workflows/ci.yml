@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      # Downloads the Git LFS objects (vendor/tesseract, ~140 MB) on every run; this counts
+      # against the repository's LFS bandwidth quota.
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Verify bundled OCR engine
+        run: python tools/prepare_vendor.py --verify
+
+      - name: Lint
+        run: python -m ruff check .
+
+      # test_desktop.py injects real keyboard/mouse input and is never run in CI.
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests --ignore=tests/test_desktop.py -p no:cacheprovider
