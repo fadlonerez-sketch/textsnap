@@ -21,7 +21,10 @@ from helpers import FakeClipboardBackend, FakeTrigger
 
 
 @pytest.fixture(autouse=True)
-def full_motion():
+def full_motion(monkeypatch):
+    # Windows' "Animation effects" setting is off on some hosts (e.g. CI runners); pin it on so these
+    # tests exercise the animated path. Tests that need it off patch it themselves.
+    monkeypatch.setattr(motion, "system_animations_enabled", lambda: True)
     motion.set_reduced(False)
     yield
     motion.set_reduced(False)
